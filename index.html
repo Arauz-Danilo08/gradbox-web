@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GradBox - Recuerdos que duran para siempre</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -27,30 +26,54 @@
             }
         }
     </script>
-    <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Animaciones Pro para el proyecto */
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+        .toast-enter { animation: toastSlide 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(100%); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes toastSlide {
+            from { opacity: 0; transform: translateY(100px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Scrollbar estilizado */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #FDFBF7; }
+        ::-webkit-scrollbar-thumb { background: #E8D6CB; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #C88675; }
+    </style>
 </head>
-<body class="bg-[#FDFBF7] text-gray-800 font-sans antialiased">
+<body class="bg-[#FDFBF7] text-gray-800 font-sans antialiased overflow-x-hidden">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect } = React;
-        // Iconos
-        const ShoppingCart = ({ size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
-        );
-        const Menu = ({ size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
-        );
-        const X = ({ size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-        );
+        
+        // --- Íconos de Lucide ---
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const svgRef = React.useRef(null);
+            useEffect(() => {
+                if (svgRef.current && lucide.icons[name]) {
+                    lucide.createIcons({ icons: { [name]: lucide.icons[name] }, nameAttr: 'data-lucide', attrs: { class: className, width: size, height: size } });
+                }
+            }, [name, size, className]);
+            return <i ref={svgRef} data-lucide={name}></i>;
+        };
 
         const App = () => {
             const [activeTab, setActiveTab] = useState('inicio');
@@ -59,6 +82,7 @@
             const [isCartOpen, setIsCartOpen] = useState(false);
             const [selectedProduct, setSelectedProduct] = useState(null);
             const [customText, setCustomText] = useState("");
+            const [toastMessage, setToastMessage] = useState(null); // Estado para notificaciones
 
             const products = [
                 {
@@ -89,7 +113,7 @@
             const navigateTo = (tab) => {
                 setActiveTab(tab);
                 setIsMobileMenuOpen(false);
-                window.scrollTo(0, 0);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             };
 
             const openCustomization = (product) => {
@@ -97,21 +121,49 @@
                 setCustomText("");
             };
 
+            const showToast = (message) => {
+                setToastMessage(message);
+                setTimeout(() => setToastMessage(null), 3000);
+            };
+
+            // Lógica Pro: Agregar agrupando cantidades
             const addToCart = () => {
                 if (selectedProduct) {
-                    setCart([...cart, { ...selectedProduct, customText, cartId: Date.now() }]);
+                    const existingItemIndex = cart.findIndex(
+                        item => item.id === selectedProduct.id && item.customText === customText
+                    );
+
+                    if (existingItemIndex >= 0) {
+                        const newCart = [...cart];
+                        newCart[existingItemIndex].quantity += 1;
+                        setCart(newCart);
+                    } else {
+                        setCart([...cart, { ...selectedProduct, customText, quantity: 1, cartId: Date.now() }]);
+                    }
+                    
                     setSelectedProduct(null);
-                    setIsCartOpen(true);
+                    showToast(`¡${selectedProduct.name} agregado al carrito!`);
                 }
+            };
+
+            // Lógica Pro: Modificar cantidad
+            const updateQuantity = (cartId, delta) => {
+                setCart(cart.map(item => {
+                    if (item.cartId === cartId) {
+                        const newQuantity = item.quantity + delta;
+                        return newQuantity > 0 ? { ...item, quantity: newQuantity } : item;
+                    }
+                    return item;
+                }));
             };
 
             const removeFromCart = (cartId) => {
                 setCart(cart.filter(item => item.cartId !== cartId));
             };
 
-            const cartTotal = cart.reduce((total, item) => total + item.price, 0);
+            const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+            const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
 
-            // FUNCIÓN DE WHATSAPP CON TU NÚMERO
             const handleCheckout = () => {
                 if (cart.length === 0) return;
                 
@@ -119,7 +171,7 @@
                 let message = "🎓 *¡Hola GradBox! Quiero realizar el siguiente pedido:*\n\n";
                 
                 cart.forEach((item, index) => {
-                    message += `*${index + 1}. ${item.name}* - C$${item.price}\n`;
+                    message += `*${index + 1}. ${item.quantity}x ${item.name}* - C$${item.price * item.quantity}\n`;
                     if (item.customText) {
                         message += `   ✏️ _Personalización: ${item.customText}_\n`;
                     }
@@ -133,30 +185,25 @@
 
             return (
                 <div className="min-h-screen flex flex-col font-sans">
-                    {/* Header y Navegación Original */}
-                    <header className="bg-brand-bg sticky top-0 z-40 border-b border-brand-border shadow-sm">
+                    {/* Header */}
+                    <header className="bg-[#FDFBF7]/90 backdrop-blur-md sticky top-0 z-40 border-b border-brand-border shadow-sm transition-all">
                         <div className="max-w-6xl mx-auto px-4 py-4">
                             <div className="flex justify-between items-center">
-                                {/* Logo */}
-                                <div 
-                                    className="flex items-center gap-2 cursor-pointer" 
-                                    onClick={() => navigateTo('inicio')}
-                                >
-                                    <h1 className="text-3xl font-serif font-bold text-brand-brown tracking-tight">
+                                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => navigateTo('inicio')}>
+                                    <h1 className="text-3xl font-serif font-bold text-brand-brown tracking-tight group-hover:text-brand-pink transition-colors">
                                         GradBox
                                     </h1>
                                 </div>
 
-                                {/* Menú Desktop */}
                                 <nav className="hidden md:flex space-x-8">
                                     {tabs.map((tab) => (
                                         <button
                                             key={tab}
                                             onClick={() => navigateTo(tab)}
-                                            className={`uppercase tracking-wider text-sm font-medium transition-colors pb-1 border-b-2 ${
+                                            className={`uppercase tracking-wider text-sm font-medium transition-all pb-1 border-b-2 ${
                                                 activeTab === tab 
                                                     ? 'border-brand-brown text-brand-brown' 
-                                                    : 'border-transparent text-gray-500 hover:text-brand-pink'
+                                                    : 'border-transparent text-gray-500 hover:text-brand-pink hover:border-brand-pink/30'
                                             }`}
                                         >
                                             {tab}
@@ -164,39 +211,33 @@
                                     ))}
                                 </nav>
 
-                                {/* Iconos (Carrito y Menú Móvil) */}
                                 <div className="flex items-center space-x-4">
                                     <button 
                                         onClick={() => setIsCartOpen(true)} 
-                                        className="relative p-2 text-brand-brown hover:text-brand-pink transition-colors"
+                                        className="relative p-2 text-brand-brown hover:bg-brand-light rounded-full transition-colors"
                                     >
-                                        <ShoppingCart />
-                                        {cart.length > 0 && (
-                                            <span className="absolute top-0 right-0 flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
-                                                {cart.length}
+                                        <Icon name="ShoppingCart" />
+                                        {totalItems > 0 && (
+                                            <span className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-[#C88675] border-2 border-[#FDFBF7] rounded-full">
+                                                {totalItems}
                                             </span>
                                         )}
                                     </button>
-                                    
-                                    <button 
-                                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-                                        className="md:hidden p-2 text-brand-brown"
-                                    >
-                                        {isMobileMenuOpen ? <X /> : <Menu />}
+                                    <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden p-2 text-brand-brown">
+                                        <Icon name={isMobileMenuOpen ? "X" : "Menu"} />
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Menú Móvil Desplegable */}
                         {isMobileMenuOpen && (
-                            <div className="md:hidden bg-[#FDFBF7] border-t border-brand-border">
-                                <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                            <div className="md:hidden bg-[#FDFBF7] border-t border-brand-border absolute w-full animate-slide-up">
+                                <div className="px-2 pt-2 pb-3 space-y-1 shadow-lg">
                                     {tabs.map((tab) => (
                                         <button
                                             key={tab}
                                             onClick={() => navigateTo(tab)}
-                                            className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium uppercase tracking-wider ${
+                                            className={`block w-full text-left px-4 py-3 rounded-md text-base font-medium uppercase tracking-wider ${
                                                 activeTab === tab 
                                                     ? 'bg-brand-light text-brand-brown' 
                                                     : 'text-brand-brown hover:bg-brand-light'
@@ -210,13 +251,25 @@
                         )}
                     </header>
 
-                    {/* Contenido Principal según la pestaña */}
+                    {/* Toast Notification */}
+                    {toastMessage && (
+                        <div className="fixed bottom-6 right-6 z-50 toast-enter">
+                            <div className="bg-[#25D366] text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 font-medium">
+                                <Icon name="CheckCircle2" size={20} />
+                                {toastMessage}
+                            </div>
+                        </div>
+                    )}
+
                     <main className="flex-grow">
+                        {/* INICIO */}
                         {activeTab === 'inicio' && (
                             <div className="animate-fade-in">
-                                <section className="bg-brand-light py-20 px-4 text-center">
-                                    <div className="max-w-3xl mx-auto">
-                                        <h2 className="text-4xl md:text-6xl font-serif text-brand-brown mb-6 font-bold leading-tight">
+                                <section className="bg-brand-light py-24 px-4 text-center relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-brand-brown to-transparent"></div>
+                                    <div className="max-w-3xl mx-auto relative z-10">
+                                        <span className="text-brand-pink font-semibold tracking-widest uppercase text-sm mb-4 block">Feria de Innovación 2026</span>
+                                        <h2 className="text-5xl md:text-6xl font-serif text-brand-brown mb-6 font-bold leading-tight">
                                             Recuerdos que duran<br/>para siempre
                                         </h2>
                                         <p className="text-lg md:text-xl text-gray-700 mb-10 max-w-2xl mx-auto">
@@ -224,61 +277,61 @@
                                         </p>
                                         <button 
                                             onClick={() => navigateTo('catálogo')}
-                                            className="bg-brand-brown text-white px-8 py-4 rounded-full font-semibold text-lg shadow-lg hover:bg-brand-pink hover:text-brand-brown transition-all duration-300"
+                                            className="bg-brand-brown text-white px-8 py-4 rounded-full font-semibold text-lg shadow-[0_10px_20px_rgba(139,94,60,0.3)] hover:shadow-[0_15px_30px_rgba(139,94,60,0.4)] hover:-translate-y-1 transition-all duration-300 flex items-center gap-2 mx-auto"
                                         >
-                                            Ver Catálogo de Productos
+                                            Ver Catálogo <Icon name="ArrowRight" size={20}/>
                                         </button>
                                     </div>
                                 </section>
                                 
-                                <section className="py-16 px-4 max-w-6xl mx-auto">
+                                <section className="py-20 px-4 max-w-6xl mx-auto">
                                     <div className="grid md:grid-cols-3 gap-8 text-center">
-                                        <div className="p-6 bg-white rounded-2xl shadow-sm border border-brand-border">
-                                            <div className="bg-brand-light w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-brand-brown text-2xl">1</div>
-                                            <h3 className="text-xl font-bold text-brand-brown mb-2">Elige</h3>
-                                            <p className="text-gray-600">Explora nuestra selección de productos diseñados especialmente para graduados.</p>
-                                        </div>
-                                        <div className="p-6 bg-white rounded-2xl shadow-sm border border-brand-border">
-                                            <div className="bg-brand-light w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-brand-brown text-2xl">2</div>
-                                            <h3 className="text-xl font-bold text-brand-brown mb-2">Personaliza</h3>
-                                            <p className="text-gray-600">Agrega tu nombre, fotografías, frases o el diseño de tu generación.</p>
-                                        </div>
-                                        <div className="p-6 bg-white rounded-2xl shadow-sm border border-brand-border">
-                                            <div className="bg-brand-light w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-brand-brown text-2xl">3</div>
-                                            <h3 className="text-xl font-bold text-brand-brown mb-2">Recuerda</h3>
-                                            <p className="text-gray-600">Recibe tus productos y conserva el recuerdo de esta etapa para siempre.</p>
-                                        </div>
+                                        {[
+                                            { icon: "Search", title: "Elige", desc: "Explora nuestra selección de productos diseñados especialmente para graduados." },
+                                            { icon: "PenTool", title: "Personaliza", desc: "Agrega tu nombre, fotografías, frases o el diseño de tu generación." },
+                                            { icon: "Gift", title: "Recuerda", desc: "Recibe tus productos y conserva el recuerdo de esta etapa para siempre." }
+                                        ].map((step, i) => (
+                                            <div key={i} className="p-8 bg-white rounded-3xl shadow-sm border border-brand-border hover:shadow-md transition-shadow">
+                                                <div className="bg-brand-light w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 text-brand-brown">
+                                                    <Icon name={step.icon} size={32} />
+                                                </div>
+                                                <h3 className="text-2xl font-bold text-brand-brown mb-3">{step.title}</h3>
+                                                <p className="text-gray-600 leading-relaxed">{step.desc}</p>
+                                            </div>
+                                        ))}
                                     </div>
                                 </section>
                             </div>
                         )}
 
+                        {/* CATÁLOGO */}
                         {activeTab === 'catálogo' && (
-                            <div className="max-w-6xl mx-auto px-4 py-12 animate-fade-in">
-                                <div className="text-center mb-12">
+                            <div className="max-w-6xl mx-auto px-4 py-16 animate-fade-in">
+                                <div className="text-center mb-16">
                                     <h2 className="text-4xl font-serif text-brand-brown font-bold mb-4">Catálogo Exclusivo</h2>
-                                    <p className="text-gray-600">Selecciona el producto que deseas y personalízalo a tu gusto.</p>
+                                    <p className="text-gray-600 text-lg">Selecciona el producto que deseas y hazlo único.</p>
                                 </div>
                                 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
                                     {products.map(product => (
-                                        <div key={product.id} className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden flex flex-col border border-brand-border">
-                                            <div className="h-72 bg-[#FDFBF7] flex items-center justify-center p-6 border-b border-brand-border relative group">
+                                        <div key={product.id} className="bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col border border-brand-border group">
+                                            <div className="h-80 bg-[#FDFBF7] flex items-center justify-center p-8 border-b border-brand-border relative overflow-hidden">
                                                 <img 
                                                     src={product.img} 
                                                     alt={product.name} 
-                                                    className="max-h-full max-w-full object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-500" 
+                                                    className="max-h-full max-w-full object-contain drop-shadow-md group-hover:scale-110 transition-transform duration-500 ease-out" 
                                                 />
                                             </div>
-                                            <div className="p-6 flex flex-col flex-grow">
-                                                <h4 className="text-xl font-bold text-brand-brown mb-2">{product.name}</h4>
-                                                <p className="text-gray-600 text-sm mb-6 flex-grow">{product.description}</p>
-                                                <div className="flex justify-between items-center mt-auto pt-4 border-t border-brand-light">
+                                            <div className="p-8 flex flex-col flex-grow">
+                                                <h4 className="text-2xl font-bold text-brand-brown mb-3">{product.name}</h4>
+                                                <p className="text-gray-600 text-sm mb-8 flex-grow leading-relaxed">{product.description}</p>
+                                                <div className="flex justify-between items-center mt-auto">
                                                     <span className="text-2xl font-bold text-gray-800">C${product.price}</span>
                                                     <button 
                                                         onClick={() => openCustomization(product)}
-                                                        className="bg-brand-brown text-white font-medium px-5 py-2.5 rounded-lg hover:bg-brand-pink hover:text-brand-brown transition-colors"
+                                                        className="bg-brand-brown text-white font-medium px-6 py-3 rounded-xl hover:bg-brand-pink hover:text-brand-brown transition-colors flex items-center gap-2"
                                                     >
+                                                        <Icon name="Wand2" size={18} />
                                                         Personalizar
                                                     </button>
                                                 </div>
@@ -289,69 +342,80 @@
                             </div>
                         )}
 
+                        {/* EL PROYECTO */}
                         {activeTab === 'el proyecto' && (
-                            <div className="max-w-4xl mx-auto px-4 py-12 animate-fade-in">
-                                <h2 className="text-4xl font-serif text-brand-brown font-bold mb-10 text-center">Sobre GradBox</h2>
+                            <div className="max-w-4xl mx-auto px-4 py-16 animate-fade-in">
+                                <h2 className="text-4xl font-serif text-brand-brown font-bold mb-12 text-center">Sobre GradBox</h2>
                                 
                                 <div className="space-y-12">
-                                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-brand-border">
-                                        <h3 className="text-2xl font-bold text-brand-brown mb-4 border-b pb-2 border-brand-light">El Problema</h3>
-                                        <p className="text-gray-700 leading-relaxed mb-4">
-                                            La graduación es un momento muy importante, pero preparar todo lo relacionado no siempre es sencillo. Muchas veces los estudiantes tienen que buscar sus productos en diferentes lugares (camisetas en una tienda, vasos con otra persona, fotografías en otro local).
-                                        </p>
-                                        <p className="text-gray-700 leading-relaxed">
-                                            Esto hace el proceso complicado y estresante, especialmente cuando los estudiantes tienen muchas responsabilidades escolares en su último año.
-                                        </p>
-                                    </div>
-
-                                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-brand-border">
-                                        <h3 className="text-2xl font-bold text-brand-brown mb-4 border-b pb-2 border-brand-light">Nuestra Solución</h3>
-                                        <p className="text-gray-700 leading-relaxed">
-                                            GradBox es un proyecto de comercio electrónico que reúne diferentes productos para graduados en un solo lugar. Permitimos que cada cliente pueda personalizarlos, ahorrando tiempo y comprando de una forma mucho más organizada.
+                                    <div className="bg-white p-10 rounded-3xl shadow-sm border border-brand-border relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-light rounded-bl-full -z-0 opacity-50"></div>
+                                        <h3 className="text-2xl font-bold text-brand-brown mb-6 flex items-center gap-3 relative z-10">
+                                            <Icon name="Target" className="text-brand-pink"/> El Problema
+                                        </h3>
+                                        <p className="text-gray-700 leading-relaxed mb-4 text-lg relative z-10">
+                                            La graduación es un momento muy importante, pero preparar todo lo relacionado no siempre es sencillo. Muchas veces los estudiantes tienen que buscar sus productos en diferentes lugares, lo que hace el proceso complicado y estresante.
                                         </p>
                                     </div>
 
-                                    <div className="bg-brand-light p-8 rounded-2xl shadow-sm">
-                                        <h3 className="text-2xl font-bold text-brand-brown mb-4">Nuestros Objetivos</h3>
-                                        <ul className="space-y-3 text-gray-800">
-                                            <li className="flex items-start">
-                                                <span className="text-brand-pink mr-2">✦</span>
-                                                Diseñar una plataforma en línea sencilla y agradable.
-                                            </li>
-                                            <li className="flex items-start">
-                                                <span className="text-brand-pink mr-2">✦</span>
-                                                Permitir que los clientes puedan personalizar sus productos según sus gustos.
-                                            </li>
-                                            <li className="flex items-start">
-                                                <span className="text-brand-pink mr-2">✦</span>
-                                                Agilizar el proceso de compra evitando buscar en distintos lugares.
-                                            </li>
-                                        </ul>
+                                    <div className="bg-brand-brown text-white p-10 rounded-3xl shadow-lg relative overflow-hidden">
+                                        <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                                            <Icon name="Lightbulb" className="text-brand-pink"/> Nuestra Solución
+                                        </h3>
+                                        <p className="text-brand-light leading-relaxed text-lg">
+                                            GradBox es una plataforma de eCommerce que reúne productos para graduados en un solo lugar. Permitimos la personalización total, ahorrando tiempo y brindando una experiencia de compra organizada y emocional.
+                                        </p>
+                                    </div>
+                                    
+                                    {/* Sección Pro: FAQ */}
+                                    <div className="pt-8">
+                                        <h3 className="text-2xl font-bold text-brand-brown mb-6 text-center">Preguntas Frecuentes</h3>
+                                        <div className="space-y-4">
+                                            <div className="bg-white border border-brand-border p-6 rounded-2xl">
+                                                <h4 className="font-bold text-gray-800 mb-2">¿Cómo envío las fotografías para mis productos?</h4>
+                                                <p className="text-gray-600 text-sm">Al confirmar tu pedido vía WhatsApp, un asesor te solicitará las imágenes en alta calidad para asegurar el mejor resultado.</p>
+                                            </div>
+                                            <div className="bg-white border border-brand-border p-6 rounded-2xl">
+                                                <h4 className="font-bold text-gray-800 mb-2">¿Atienden pedidos para generaciones completas?</h4>
+                                                <p className="text-gray-600 text-sm">¡Sí! Tenemos precios especiales para pedidos al por mayor. Escríbenos a nuestro WhatsApp para cotizar.</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         )}
 
+                        {/* CONTACTO */}
                         {activeTab === 'contacto' && (
-                            <div className="max-w-3xl mx-auto px-4 py-12 animate-fade-in text-center">
-                                <h2 className="text-4xl font-serif text-brand-brown font-bold mb-8">Contáctanos</h2>
-                                <p className="text-gray-600 mb-10 text-lg">¿Tienes alguna duda o quieres un pedido especial para toda tu generación? ¡Escríbenos!</p>
+                            <div className="max-w-3xl mx-auto px-4 py-16 animate-fade-in text-center">
+                                <h2 className="text-4xl font-serif text-brand-brown font-bold mb-6">Contáctanos</h2>
+                                <p className="text-gray-600 mb-12 text-lg">¿Tienes alguna duda o quieres un pedido especial para toda tu generación? ¡Estamos listos para ayudarte!</p>
                                 
-                                <div className="bg-white p-8 rounded-2xl shadow-md border border-brand-border">
-                                    <div className="space-y-6">
-                                        <div>
+                                <div className="bg-white p-10 rounded-3xl shadow-md border border-brand-border">
+                                    <div className="space-y-8">
+                                        <div className="flex flex-col items-center">
+                                            <div className="w-12 h-12 bg-green-100 text-[#25D366] rounded-full flex items-center justify-center mb-4">
+                                                <Icon name="Phone" />
+                                            </div>
                                             <h4 className="font-bold text-gray-800 mb-1">WhatsApp Directo</h4>
-                                            <p className="text-brand-brown text-xl">+505 8885 7083</p>
+                                            <a href="https://wa.me/50588857083" target="_blank" className="text-brand-brown text-2xl font-bold hover:text-brand-pink transition-colors">+505 8885 7083</a>
                                         </div>
-                                        <div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                                                <Icon name="Mail" />
+                                            </div>
                                             <h4 className="font-bold text-gray-800 mb-1">Correo Electrónico</h4>
                                             <p className="text-gray-600">info@gradbox.com</p>
                                         </div>
-                                        <div className="pt-6 border-t border-brand-light">
-                                            <p className="text-sm text-gray-500 mb-4">Síguenos en nuestras redes sociales</p>
-                                            <div className="flex justify-center gap-4">
-                                                <div className="w-10 h-10 bg-brand-light rounded-full flex items-center justify-center text-brand-brown hover:bg-brand-pink hover:text-white cursor-pointer transition">IG</div>
-                                                <div className="w-10 h-10 bg-brand-light rounded-full flex items-center justify-center text-brand-brown hover:bg-brand-pink hover:text-white cursor-pointer transition">FB</div>
+                                        <div className="pt-8 border-t border-brand-light">
+                                            <p className="text-sm font-semibold text-gray-500 mb-6 uppercase tracking-wider">Síguenos en nuestras redes</p>
+                                            <div className="flex justify-center gap-6">
+                                                <button className="w-12 h-12 bg-brand-light rounded-full flex items-center justify-center text-brand-brown hover:bg-gradient-to-tr hover:from-yellow-400 hover:via-red-500 hover:to-purple-500 hover:text-white hover:shadow-lg transition-all duration-300">
+                                                    <Icon name="Instagram" />
+                                                </button>
+                                                <button className="w-12 h-12 bg-brand-light rounded-full flex items-center justify-center text-brand-brown hover:bg-blue-600 hover:text-white hover:shadow-lg transition-all duration-300">
+                                                    <Icon name="Facebook" />
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -360,100 +424,122 @@
                         )}
                     </main>
 
-                    {/* Footer Original */}
-                    <footer className="bg-brand-brown text-white py-12 mt-auto">
+                    {/* Footer */}
+                    <footer className="bg-brand-brown text-white py-16 mt-auto">
                         <div className="max-w-6xl mx-auto px-4 text-center">
-                            <h2 className="font-serif text-3xl mb-4 font-bold">GradBox</h2>
-                            <p className="text-brand-light mb-6">Recuerdos que duran para siempre.</p>
-                            <div className="w-16 h-px bg-brand-pink mx-auto mb-6"></div>
-                            <p className="text-sm text-gray-300">Feria de Innovación y Competencias Empresariales</p>
-                            <p className="text-xs text-gray-400 mt-2">© 2026 GradBox. Todos los derechos reservados.</p>
+                            <h2 className="font-serif text-4xl mb-4 font-bold text-[#F5EBE6]">GradBox</h2>
+                            <p className="text-brand-pink mb-8 text-lg">Recuerdos que duran para siempre.</p>
+                            <div className="w-24 h-1 bg-brand-pink/50 mx-auto mb-8 rounded-full"></div>
+                            <p className="text-sm text-gray-300 mb-2">Feria de Innovación y Competencias Empresariales</p>
+                            <p className="text-xs text-gray-400">© 2026 GradBox. Todos los derechos reservados.</p>
                         </div>
                     </footer>
 
-                    {/* Modal de Personalización (Igual que antes) */}
+                    {/* Modal de Personalización */}
                     {selectedProduct && (
-                        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-sm">
-                            <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl relative">
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+                            <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
                                 <button 
                                     onClick={() => setSelectedProduct(null)}
-                                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 transition-colors"
+                                    className="absolute top-6 right-6 text-gray-400 hover:text-gray-800 transition-colors bg-gray-100 p-2 rounded-full"
                                 >
-                                    <X size={24} />
+                                    <Icon name="X" size={20} />
                                 </button>
                                 
-                                <h3 className="text-2xl font-bold text-brand-brown mb-1">Personalizar</h3>
-                                <p className="text-gray-500 text-sm mb-6">{selectedProduct.name}</p>
+                                <h3 className="text-3xl font-bold text-brand-brown mb-1">Personalizar</h3>
+                                <p className="text-gray-500 text-base mb-8">{selectedProduct.name}</p>
                                 
-                                <div className="mb-6">
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                <div className="mb-8">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-3">
                                         Texto, Nombre o Frase <span className="font-normal text-gray-400">(Opcional)</span>
                                     </label>
                                     <textarea 
                                         value={customText}
                                         onChange={(e) => setCustomText(e.target.value)}
                                         placeholder="Ej: Generación 2026, ¡Lo logramos!"
-                                        className="w-full border border-brand-border rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-brand-pink focus:border-transparent resize-none h-28 bg-gray-50"
+                                        className="w-full border-2 border-brand-light rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-brand-pink focus:border-transparent resize-none h-32 bg-gray-50/50 text-gray-700"
                                     ></textarea>
                                 </div>
                                 
-                                <div className="bg-brand-light p-4 rounded-xl text-sm text-brand-brown mb-8 flex gap-3">
-                                    <span className="text-xl">💡</span>
-                                    <p>Si deseas agregar una fotografía o diseño específico, te lo pediremos por WhatsApp después de confirmar el pedido.</p>
+                                <div className="bg-brand-light/50 p-4 rounded-xl text-sm text-brand-brown mb-8 flex gap-3 items-start border border-brand-light">
+                                    <Icon name="Image" className="flex-shrink-0 mt-0.5" size={20} />
+                                    <p>Para agregar fotografías o logos, te los solicitaremos por WhatsApp al confirmar tu pedido.</p>
                                 </div>
 
                                 <button 
                                     onClick={addToCart}
-                                    className="w-full bg-brand-brown text-white font-bold py-4 rounded-xl hover:bg-brand-pink hover:text-brand-brown transition-colors shadow-lg"
+                                    className="w-full bg-brand-brown text-white font-bold py-4 rounded-xl hover:bg-brand-pink hover:text-brand-brown transition-all shadow-lg hover:shadow-xl flex justify-center items-center gap-2"
                                 >
-                                    Agregar al Carrito - C${selectedProduct.price}
+                                    <Icon name="ShoppingCart" size={20} />
+                                    Agregar al Carrito • C${selectedProduct.price}
                                 </button>
                             </div>
                         </div>
                     )}
 
-                    {/* Sidebar del Carrito (Mantenida con el código de WhatsApp) */}
+                    {/* Sidebar del Carrito (Mejorada con Cantidades) */}
                     {isCartOpen && (
-                        <div className="fixed inset-0 z-50 flex justify-end bg-black bg-opacity-60 backdrop-blur-sm">
-                            <div className="bg-white w-full max-w-md h-full flex flex-col shadow-2xl">
-                                <div className="p-6 border-b border-brand-border flex justify-between items-center bg-brand-bg">
-                                    <h3 className="text-2xl font-bold text-brand-brown font-serif">Tu Pedido</h3>
-                                    <button onClick={() => setIsCartOpen(false)} className="text-gray-400 hover:text-black transition-colors">
-                                        <X size={24} />
+                        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
+                            <div className="bg-[#FDFBF7] w-full max-w-md h-full flex flex-col shadow-2xl animate-slide-up md:animate-fade-in">
+                                <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
+                                    <h3 className="text-2xl font-bold text-brand-brown font-serif flex items-center gap-2">
+                                        <Icon name="ShoppingBag" /> Tu Pedido
+                                    </h3>
+                                    <button onClick={() => setIsCartOpen(false)} className="text-gray-400 hover:text-black transition-colors bg-gray-100 p-2 rounded-full">
+                                        <Icon name="X" size={20} />
                                     </button>
                                 </div>
                                 
-                                <div className="flex-grow overflow-y-auto p-6 bg-[#FDFBF7]">
+                                <div className="flex-grow overflow-y-auto p-6">
                                     {cart.length === 0 ? (
-                                        <div className="text-center text-gray-500 mt-20 flex flex-col items-center">
-                                            <ShoppingCart size={48} className="text-brand-light mb-4" />
-                                            <p className="text-lg">Tu carrito está vacío.</p>
-                                            <p className="text-sm mt-2">Agrega productos desde el catálogo.</p>
+                                        <div className="text-center text-gray-500 mt-24 flex flex-col items-center">
+                                            <div className="w-24 h-24 bg-brand-light rounded-full flex items-center justify-center mb-6 text-brand-brown/50">
+                                                <Icon name="ShoppingCart" size={48} />
+                                            </div>
+                                            <p className="text-xl font-medium text-gray-600">Tu carrito está vacío</p>
+                                            <p className="text-sm mt-2 text-gray-400">Agrega recuerdos desde el catálogo.</p>
+                                            <button 
+                                                onClick={() => {setIsCartOpen(false); navigateTo('catálogo');}}
+                                                className="mt-8 text-brand-brown font-semibold hover:text-brand-pink"
+                                            >
+                                                Ir al catálogo &rarr;
+                                            </button>
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
                                             {cart.map(item => (
-                                                <div key={item.cartId} className="flex gap-4 p-4 bg-white rounded-xl border border-brand-border shadow-sm">
-                                                    <div className="w-20 h-20 bg-brand-light rounded-lg flex-shrink-0 flex items-center justify-center p-2">
+                                                <div key={item.cartId} className="flex gap-4 p-4 bg-white rounded-2xl border border-brand-border shadow-sm">
+                                                    <div className="w-24 h-24 bg-brand-light/30 rounded-xl flex-shrink-0 flex items-center justify-center p-2">
                                                         <img src={item.img} alt={item.name} className="max-h-full object-contain drop-shadow-sm" />
                                                     </div>
-                                                    <div className="flex-grow">
-                                                        <div className="flex justify-between items-start">
-                                                            <h4 className="font-bold text-gray-800">{item.name}</h4>
-                                                            <button 
-                                                                onClick={() => removeFromCart(item.cartId)}
-                                                                className="text-gray-400 hover:text-red-500 transition-colors"
-                                                            >
-                                                                <X size={18} />
+                                                    <div className="flex-grow flex flex-col">
+                                                        <div className="flex justify-between items-start mb-1">
+                                                            <h4 className="font-bold text-gray-800 leading-tight">{item.name}</h4>
+                                                            <button onClick={() => removeFromCart(item.cartId)} className="text-gray-300 hover:text-red-500 transition-colors">
+                                                                <Icon name="Trash2" size={18} />
                                                             </button>
                                                         </div>
-                                                        <p className="text-brand-brown font-semibold mb-1">C${item.price}</p>
+                                                        
                                                         {item.customText && (
-                                                            <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
-                                                                <span className="font-semibold block mb-1">Personalización:</span>
-                                                                "{item.customText}"
+                                                            <p className="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg border border-gray-100 mb-2 truncate" title={item.customText}>
+                                                                <span className="font-semibold">Nota:</span> {item.customText}
                                                             </p>
                                                         )}
+                                                        
+                                                        <div className="mt-auto flex justify-between items-center">
+                                                            <span className="text-brand-brown font-bold">C${item.price * item.quantity}</span>
+                                                            
+                                                            {/* Control de Cantidad Pro */}
+                                                            <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">
+                                                                <button onClick={() => updateQuantity(item.cartId, -1)} className="p-1 text-gray-500 hover:text-brand-brown transition-colors">
+                                                                    <Icon name="Minus" size={16} />
+                                                                </button>
+                                                                <span className="w-8 text-center text-sm font-semibold text-gray-700">{item.quantity}</span>
+                                                                <button onClick={() => updateQuantity(item.cartId, 1)} className="p-1 text-gray-500 hover:text-brand-brown transition-colors">
+                                                                    <Icon name="Plus" size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -461,21 +547,22 @@
                                     )}
                                 </div>
                                 
-                                <div className="p-6 bg-white border-t border-brand-border">
+                                <div className="p-6 bg-white border-t border-brand-border shadow-[0_-10px_20px_rgba(0,0,0,0.03)]">
                                     <div className="flex justify-between items-end mb-6">
-                                        <span className="text-gray-600 font-medium">Total estimado</span>
+                                        <span className="text-gray-600 font-medium">Total estimado <span className="text-sm text-gray-400">({totalItems} items)</span></span>
                                         <span className="text-3xl font-bold text-brand-brown">C${cartTotal}</span>
                                     </div>
                                     <button 
                                         onClick={handleCheckout}
                                         disabled={cart.length === 0}
-                                        className={`w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-lg
+                                        className={`w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-3 text-lg
                                             ${cart.length === 0 
                                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                                : 'bg-[#25D366] text-white hover:bg-[#22bf5b] shadow-lg hover:shadow-xl'
+                                                : 'bg-[#25D366] text-white hover:bg-[#22bf5b] shadow-[0_10px_20px_rgba(37,211,102,0.3)] hover:-translate-y-1'
                                             }`}
                                     >
-                                        Enviar pedido por WhatsApp
+                                        <Icon name="MessageCircle" />
+                                        Comprar vía WhatsApp
                                     </button>
                                 </div>
                             </div>
